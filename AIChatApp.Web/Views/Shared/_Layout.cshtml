@@ -12,10 +12,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AIChatApp</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @RenderSection("Styles", required: false)
     @RenderSection("HeadMeta", required: false)
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
     </style>
 </head>
 <body class="bg-white text-gray-900 flex flex-col h-full antialiased">
@@ -39,11 +42,13 @@
                         <a asp-controller="Home" asp-action="Index" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Home</a>
                         <a href="/Chats" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Chats</a>
                         <a asp-controller="UserList" asp-action="UsersList" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Find Users</a>
+                        <a asp-controller="Home" asp-action="Privacy" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Privacy</a>
                         <a asp-controller="Profile" asp-action="ProfileDetails" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Profile</a>
                     }
                     else
                     {
                         <a asp-controller="Home" asp-action="Index" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Home</a>
+                        <a asp-controller="Home" asp-action="Privacy" class="text-sm font-medium text-gray-500 hover:text-black hover:underline underline-offset-4 transition-all duration-200">Privacy</a>
                     }
                 </div>
 
@@ -134,22 +139,31 @@
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-md"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-100">
-                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-100">
+                    <div class="bg-white px-6 pb-6 pt-8 sm:p-8">
                         <div class="sm:flex sm:items-start">
-                            <div id="modal-icon-container" class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <div id="modal-icon-container" class="mx-auto flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-gray-50 mb-6 sm:mx-0 sm:h-12 sm:w-12 sm:mb-0">
+                                <svg class="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                             </div>
-                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title"></h3>
-                                <div class="mt-2">
-                                    <p id="modal-message-content" class="text-sm text-gray-500"></p>
+
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left sm:flex-1">
+                                <h3 class="text-xl font-bold tracking-tight text-gray-900" id="modal-title"></h3>
+                                <div class="mt-4">
+                                    <p id="modal-message-content" class="text-sm text-gray-600 leading-relaxed"></p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button type="button" id="modal-action-button" class="inline-flex w-full justify-center rounded-md bg-black px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 sm:ml-3 sm:w-auto">OK</button>
-                        <button type="button" id="modal-cancel-button" onclick="closeActionModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">Cancel</button>
+
+                    <div class="bg-gray-50 px-6 py-4 flex flex-col-reverse sm:flex-row-reverse sm:px-8 sm:space-x-2 sm:space-x-reverse">
+                        <button type="button" id="modal-action-button" class="inline-flex w-full justify-center rounded-md bg-black py-2.5 px-4 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 sm:w-auto">
+                            OK
+                        </button>
+                        <button type="button" id="modal-cancel-button" onclick="closeActionModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white py-2.5 px-4 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-all duration-200">
+                            Cancel
+                        </button>
                     </div>
                 </div>
             </div>

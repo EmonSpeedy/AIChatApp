@@ -6,7 +6,9 @@ using AIChatApp.Infrastructure.Data;
 using AIChatApp.Infrastructure.Email;
 using AIChatApp.Infrastructure.Repositories;
 using AIChatApp.Infrastructure.Utilities;
+using AIChatApp.Web.Hubs; // ADD THIS - for ChatHub
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -27,6 +29,14 @@ builder.Services.AddScoped<IPasswordHasher, CustomPasswordHasher>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IUserListService, UserListService>();
 
+// NEW: Add Chat Services
+builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+builder.Services.AddScoped<IChatService, ChatService>();
+
+// NEW: Add SignalR
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+
 // Antiforgery cookie: ensure secure, appropriate SameSite
 builder.Services.AddAntiforgery(options =>
 {
@@ -40,6 +50,7 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
     options.CheckConsentNeeded = context => false; // Set to true if you have a consent banner
     options.MinimumSameSitePolicy = SameSiteMode.Lax;
 });
+
 // 3. Authentication cookie: mark Secure and set SameSite
 builder.Services.AddAuthentication("CookieAuth") // Defines the authentication scheme
     .AddCookie("CookieAuth", options =>
@@ -50,9 +61,23 @@ builder.Services.AddAuthentication("CookieAuth") // Defines the authentication s
         options.LoginPath = "/Auth/Login"; // Redirect path if not logged in
         options.AccessDeniedPath = "/Auth/AccessDenied";
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
+
+        options.Events.OnRedirectToLogin = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/chatHub"))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            }
+            else
+            {
+                context.Response.Redirect(context.RedirectUri);
+            }
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddAuthorization();
+
 builder.Services.AddControllersWithViews()
     .AddCookieTempDataProvider(options =>
     {
@@ -75,13 +100,15 @@ else
 
 // Always redirect to HTTPS (recommended)
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
 app.UseRouting();
 
 // Important: Authentication middleware must run before Authorization
 app.UseAuthentication();
 app.UseAuthorization();
+
+//  NEW: Map SignalR Hub
+app.MapHub<ChatHub>("/chatHub");
 
 app.MapControllerRoute(
     name: "default",
