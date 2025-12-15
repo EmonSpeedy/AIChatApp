@@ -61,17 +61,25 @@ public class ChatService : IChatService
             SentAt = DateTime.UtcNow // Ensure time is set
         };
 
+        // ... inside SendMessageAsync method ...
+
         // Handle File Upload
         if (dto.File != null && dto.File.Length > 0)
         {
-            // Simple content type check
-            string fileType = dto.File.ContentType.StartsWith("image") ? "image" : "file";
+            // SOLID/DRY: Extend type detection logic here
+            string contentType = dto.File.ContentType.ToLower();
+            string fileType = "file";
 
-            // Upload
+            if (contentType.StartsWith("image"))
+                fileType = "image";
+            else if (contentType.StartsWith("audio")) // <--- ADD THIS CHECK
+                fileType = "audio";
+
+            // Reuse existing storage service (DRY)
             string fileUrl = await _fileStorageService.UploadFileAsync(dto.File.OpenReadStream(), dto.File.FileName, dto.File.ContentType);
 
             message.AttachmentUrl = fileUrl;
-            message.AttachmentType = fileType;
+            message.AttachmentType = fileType; // Now saves "audio"
             message.OriginalFileName = dto.File.FileName;
         }
 

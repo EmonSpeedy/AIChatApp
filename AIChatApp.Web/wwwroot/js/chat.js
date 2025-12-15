@@ -10,6 +10,13 @@
             sendButton: document.getElementById('sendButton'),
             attachButton: document.getElementById('attachButton'),
 
+            // Audio Recording Elements (NEW)
+            recordButton: document.getElementById('recordButton'),
+            recordingArea: document.getElementById('recordingArea'),
+            recordingTimer: document.getElementById('recordingTimer'),
+            cancelRecordingBtn: document.getElementById('cancelRecordingBtn'),
+            stopRecordingBtn: document.getElementById('stopRecordingBtn'),
+
             // Preview Area
             previewArea: document.getElementById('attachmentPreview'),
             previewImage: document.getElementById('previewImage'),
@@ -27,6 +34,13 @@
     let connection = null;
     let typingTimeout = null;
     let isConnected = false;
+
+    // Audio State
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStartTime = null;
+    let recordingInterval = null;
+    let currentAudioBlob = null; // Stores the final recorded file
 
     // --- INITIALIZATION ---
 
@@ -75,28 +89,129 @@
         const file = this.files[0];
         if (!file) return;
 
-        config.elements.previewArea.classList.remove('hidden');
-        config.elements.previewFileName.textContent = file.name;
+        // Reset any existing audio blob if user selects a file
+        currentAudioBlob = null;
 
-        // Check if image
-        if (file.type.startsWith('image/')) {
-            config.elements.previewImage.classList.remove('hidden');
-            config.elements.previewFileIcon.classList.add('hidden');
-            config.elements.previewImage.src = URL.createObjectURL(file);
-        } else {
-            config.elements.previewImage.classList.add('hidden');
-            config.elements.previewFileIcon.classList.remove('hidden');
-        }
+        showPreview(file);
     });
 
-    // 3. Remove Attachment
+    // 3. Remove Attachment (Unified for Files & Audio)
     config.elements.removeAttachmentBtn.addEventListener('click', clearAttachment);
 
     function clearAttachment() {
         config.elements.fileInput.value = ''; // Reset input
+        currentAudioBlob = null; // Reset audio
+
         config.elements.previewArea.classList.add('hidden');
         config.elements.previewImage.src = '';
     }
+
+    function showPreview(fileObj) {
+        config.elements.previewArea.classList.remove('hidden');
+        config.elements.previewFileName.textContent = fileObj.name || "Voice Message";
+
+        // Check if image
+        if (fileObj.type.startsWith('image/')) {
+            config.elements.previewImage.classList.remove('hidden');
+            config.elements.previewFileIcon.classList.add('hidden');
+            config.elements.previewImage.src = URL.createObjectURL(fileObj);
+        } else {
+            // Audio or generic file uses the Icon
+            config.elements.previewImage.classList.add('hidden');
+            config.elements.previewFileIcon.classList.remove('hidden');
+        }
+    }
+
+    // --- AUDIO RECORDING LOGIC (NEW) ---
+
+    // 1. Start Recording
+    config.elements.recordButton.addEventListener('click', async () => {
+        // Clear any existing attachments first
+        clearAttachment();
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert("Audio recording is not supported in this browser.");
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                // Create the Blob
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                currentAudioBlob = blob;
+
+                // Show in Preview Area (DRY: reusing file preview)
+                // We mock a file object with a name and type for the preview function
+                const mockFile = {
+                    name: "Voice_Message.webm",
+                    type: "audio/webm"
+                };
+                showPreview(mockFile);
+
+                // Stop all tracks to release microphone hardware
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            startTimer();
+
+            // Toggle UI: Show recording area, disable text input
+            config.elements.recordingArea.classList.remove('hidden');
+            config.elements.messageInput.disabled = true;
+
+        } catch (err) {
+            console.error("Error accessing microphone:", err);
+            alert("Could not access microphone. Please ensure permissions are granted.");
+        }
+    });
+
+    // 2. Stop Recording (Success)
+    config.elements.stopRecordingBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        resetRecordingUI();
+    });
+
+    // 3. Cancel Recording
+    config.elements.cancelRecordingBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            // Nullify onstop so we don't save the blob
+            mediaRecorder.onstop = null;
+            mediaRecorder.stop();
+            // Stop streams manually
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        resetRecordingUI();
+    });
+
+    function startTimer() {
+        recordingStartTime = Date.now();
+        config.elements.recordingTimer.innerText = "00:00";
+        recordingInterval = setInterval(() => {
+            const elapsed = Date.now() - recordingStartTime;
+            const date = new Date(elapsed);
+            config.elements.recordingTimer.innerText = date.toISOString().substr(14, 5); // mm:ss
+        }, 1000);
+    }
+
+    function resetRecordingUI() {
+        clearInterval(recordingInterval);
+        config.elements.recordingArea.classList.add('hidden');
+        config.elements.messageInput.disabled = false;
+        config.elements.messageInput.focus();
+    }
+
 
     // --- SEND MESSAGE LOGIC (HTTP POST) ---
 
@@ -110,10 +225,13 @@
 
     async function sendMessage() {
         const text = config.elements.messageInput.value.trim();
-        const file = config.elements.fileInput.files[0];
 
-        // Validation: Must have either text or a file
-        if (!text && !file) return;
+        // Determine attachment: Either a File Selection OR a Recorded Audio
+        const fileInputFile = config.elements.fileInput.files[0];
+        const attachment = fileInputFile || currentAudioBlob;
+
+        // Validation: Must have either text or an attachment
+        if (!text && !attachment) return;
 
         if (!isConnected) {
             alert("Connection lost. Reconnecting...");
@@ -126,16 +244,25 @@
             const formData = new FormData();
             formData.append("ReceiverId", config.chatUserId);
             if (text) formData.append("MessageContent", text);
-            if (file) formData.append("File", file);
+
+            if (attachment) {
+                // If it's a blob (audio), we must provide a filename
+                if (attachment instanceof Blob && !attachment.name) {
+                    const fileName = `voice-${Date.now()}.webm`;
+                    formData.append("File", attachment, fileName);
+                } else {
+                    formData.append("File", attachment);
+                }
+            }
 
             // 2. Optimistic UI: Show message immediately
             const tempId = "temp-" + Date.now();
-            appendMessage(text, true, new Date().toISOString(), tempId, false, true, file);
+            appendMessage(text, true, new Date().toISOString(), tempId, false, true, attachment);
 
             // 3. Reset Inputs immediately
             config.elements.messageInput.value = "";
             config.elements.messageInput.style.height = 'auto';
-            clearAttachment();
+            clearAttachment(); // Clears both file input and audio blob
             scrollToBottom();
 
             // 4. Send via HTTP API (Not SignalR Hub)
@@ -190,7 +317,7 @@
                     false,
                     null,
                     data.attachmentUrl,
-                    data.attachmentType,
+                    data.attachmentType, // 'image', 'audio', 'file'
                     data.originalFileName
                 );
 
@@ -374,7 +501,7 @@
             : "absolute bottom-0 right-0 w-3.5 h-3.5 bg-gray-400 border-2 border-white rounded-full";
     }
 
-    // UPDATED: Now supports files/images
+    // UPDATED: Now supports files/images/AUDIO
     function appendMessage(text, isSent, timestamp, messageId, isRead, isTemp, fileObj = null, attachmentUrl = null, attachmentType = null, originalFileName = null) {
         const div = document.createElement("div");
         div.className = `flex ${isSent ? "justify-end" : "justify-start"} animate-fadeIn mb-4`;
@@ -386,16 +513,29 @@
         // Generate Attachment HTML
         let attachmentHtml = "";
 
-        // Case A: Optimistic Local File
+        // Case A: Optimistic Local File/Blob
         if (fileObj) {
             const url = URL.createObjectURL(fileObj);
-            const isImg = fileObj.type.startsWith('image/');
-            attachmentHtml = generateAttachmentHtml(url, isImg, fileObj.name, isSent);
+            const type = fileObj.type;
+            const name = fileObj.name || "Voice Message";
+
+            if (type.startsWith('image/')) {
+                attachmentHtml = generateImageHtml(url, isSent);
+            } else if (type.startsWith('audio/') || type === 'video/webm') { // Some browsers record audio as video/webm
+                attachmentHtml = generateAudioHtml(url, isSent);
+            } else {
+                attachmentHtml = generateFileHtml(url, name, isSent);
+            }
         }
         // Case B: Server URL
         else if (attachmentUrl) {
-            const isImg = attachmentType === 'image';
-            attachmentHtml = generateAttachmentHtml(attachmentUrl, isImg, originalFileName || "File", isSent);
+            if (attachmentType === 'image') {
+                attachmentHtml = generateImageHtml(attachmentUrl, isSent);
+            } else if (attachmentType === 'audio') {
+                attachmentHtml = generateAudioHtml(attachmentUrl, isSent);
+            } else {
+                attachmentHtml = generateFileHtml(attachmentUrl, originalFileName || "File", isSent);
+            }
         }
 
         // Generate Text HTML
@@ -440,38 +580,51 @@
         config.elements.messagesContainer.appendChild(div);
     }
 
-    function generateAttachmentHtml(url, isImage, fileName, isSent) {
-        if (isImage) {
-            return `
-                <div class="mb-2">
-                    <a href="${url}" target="_blank">
-                        <!-- MATCHING CSS WITH INDEX.CSHTML -->
-                        <img src="${url}" class="rounded-lg max-w-xs max-h-80 w-auto h-auto object-cover border ${isSent ? 'border-white/20' : 'border-gray-200'}" />
-                    </a>
-                </div>`;
-        } else {
-            // File styling
-            const containerClass = isSent
-                ? "bg-black/20 hover:bg-black/30 border-white/10"
-                : "bg-gray-100 hover:bg-gray-200 border-gray-200";
+    // --- HTML GENERATORS ---
 
-            const iconBg = isSent ? "bg-white text-blue-600" : "bg-white text-gray-600 shadow-sm";
-            const textClass = isSent ? "text-white" : "text-gray-800";
-            const subTextClass = isSent ? "text-blue-100 opacity-75" : "text-gray-500";
+    function generateImageHtml(url, isSent) {
+        return `
+            <div class="mb-2">
+                <a href="${url}" target="_blank">
+                    <img src="${url}" class="rounded-lg max-w-xs max-h-80 w-auto h-auto object-cover border ${isSent ? 'border-white/20' : 'border-gray-200'}" />
+                </a>
+            </div>`;
+    }
 
-            return `
-                <div class="mb-2">
-                    <a href="${url}" target="_blank" class="flex items-center gap-3 p-2 rounded-lg border transition-colors ${containerClass}">
-                        <div class="${iconBg} p-1.5 rounded">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        </div>
-                        <div class="flex flex-col overflow-hidden">
-                            <span class="text-xs font-semibold truncate ${textClass}" title="${fileName}">${fileName}</span>
-                            <span class="text-[10px] uppercase ${subTextClass}">Attachment</span>
-                        </div>
-                    </a>
-                </div>`;
-        }
+    function generateAudioHtml(url, isSent) {
+        // Tailwind styled audio player
+        return `
+            <div class="mb-2 min-w-[240px]">
+                <audio controls class="w-full h-8 rounded opacity-90 focus:outline-none" controlsList="nodownload">
+                    <source src="${url}" type="audio/webm">
+                    <source src="${url}" type="audio/mp3"> 
+                    Your browser does not support the audio element.
+                </audio>
+                <span class="text-[10px] ${isSent ? 'text-blue-100' : 'text-gray-400'} block mt-1 ml-1">Voice Message</span>
+            </div>`;
+    }
+
+    function generateFileHtml(url, fileName, isSent) {
+        const containerClass = isSent
+            ? "bg-black/20 hover:bg-black/30 border-white/10"
+            : "bg-gray-100 hover:bg-gray-200 border-gray-200";
+
+        const iconBg = isSent ? "bg-white text-blue-600" : "bg-white text-gray-600 shadow-sm";
+        const textClass = isSent ? "text-white" : "text-gray-800";
+        const subTextClass = isSent ? "text-blue-100 opacity-75" : "text-gray-500";
+
+        return `
+            <div class="mb-2">
+                <a href="${url}" target="_blank" class="flex items-center gap-3 p-2 rounded-lg border transition-colors ${containerClass}">
+                    <div class="${iconBg} p-1.5 rounded">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="text-xs font-semibold truncate ${textClass}" title="${fileName}">${fileName}</span>
+                        <span class="text-[10px] uppercase ${subTextClass}">Attachment</span>
+                    </div>
+                </a>
+            </div>`;
     }
 
     function markAllAsSeen() {
