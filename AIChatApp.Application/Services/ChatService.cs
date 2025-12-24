@@ -18,6 +18,30 @@ public class ChatService : IChatService
         _fileStorageService = fileStorageService;
     }
 
+    public async Task<ChatListViewModel> GetChatListViewModelAsync(Guid currentUserId)
+    {
+        // Fetch all summaries from repository (1 DB Call)
+        var summaries = await _messageRepository.GetUserChatListAsync(currentUserId);
+
+        var dtos = summaries.Select(s => new ChatSummaryDto
+        {
+            UserId = s.UserId,
+            FullName = s.FullName,
+            ProfileImageUrl = string.IsNullOrEmpty(s.ProfileImageUrl)
+                ? "/images/default-avatar.png" : s.ProfileImageUrl,
+            LastMessage = s.LastMessage ?? "No messages yet",
+            LastMessageAt = s.LastMessageAt,
+            UnreadCount = s.UnreadCount
+        }).OrderByDescending(x => x.LastMessageAt).ToList();
+
+        return new ChatListViewModel
+        {
+            // Split into two lists for the UI sections
+            UnreadChats = dtos.Where(x => x.UnreadCount > 0).ToList(),
+            ReadChats = dtos.Where(x => x.UnreadCount == 0).ToList()
+        };
+    }
+
     public async Task<ChatDto> GetChatAsync(Guid currentUserId, Guid chatUserId)
     {
         var chatUser = await _userRepository.GetByIdAsync(chatUserId);

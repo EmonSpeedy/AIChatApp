@@ -9,5 +9,6 @@ public interface IChatService
     Task<List<MessageDto>> GetMessagesAsync(Guid currentUserId, Guid chatUserId, int page = 1);
     Task MarkMessagesAsReadAsync(Guid senderId, Guid receiverId);
     Task<MessageDto> EditMessageAsync(Guid currentUserId, int messageId, string newContent);
+    Task<ChatListViewModel> GetChatListViewModelAsync(Guid currentUserId);
     Task<Guid> DeleteMessageAsync(Guid currentUserId, int messageId);
 }

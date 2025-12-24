@@ -20,6 +20,19 @@ public class ChatController : Controller
         _hubContext = hubContext;
     }
 
+    public async Task<IActionResult> ChatList()
+    {
+        var currentUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(currentUserIdClaim)) return RedirectToAction("Login", "Auth");
+
+        var currentUserId = Guid.Parse(currentUserIdClaim);
+
+        // The service handles the separation of Read/Unread logic
+        var viewModel = await _chatService.GetChatListViewModelAsync(currentUserId);
+
+        return View(viewModel);
+    }
+
     [HttpPost]
     public async Task<IActionResult> SendMessage([FromForm] SendMessageDto dto)
     {

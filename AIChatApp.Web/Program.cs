@@ -29,6 +29,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher, CustomPasswordHasher>();
 builder.Services.AddScoped<IFileStorageService, CloudinaryStorageService>();
 builder.Services.AddScoped<IUserListService, UserListService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 
 // NEW: Add Chat Services
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();

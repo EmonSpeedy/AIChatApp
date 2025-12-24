@@ -1,6 +1,5 @@
 ﻿using AIChatApp.Application.DTOs;
 using AIChatApp.Application.Interfaces;
-using AIChatApp.Domain.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -11,187 +10,113 @@ public class AuthController : Controller
 {
     private readonly IAuthService _authService;
 
-    public AuthController(IAuthService authService)
-    {
-        _authService = authService;
-    }
+    public AuthController(IAuthService authService) => _authService = authService;
 
-    [HttpGet]
-    public IActionResult Register()
-    {
-        return View();
-    }
+    [HttpGet] public IActionResult Register() => View();
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterDto model)
     {
         if (!ModelState.IsValid) return View(model);
 
-        string baseUrl = $"{Request.Scheme}://{Request.Host}";
-        var result = await _authService.RegisterUserAsync(model, baseUrl);
+        var result = await _authService.RegisterUserAsync(model, GetBaseUrl());
 
-        if (result == "Success")
-        {
-            return RedirectToAction("RegisterSuccess");
-        }
+        if (result.IsSuccess) return RedirectToAction("RegisterSuccess");
 
-        ModelState.AddModelError("", result);
+        ModelState.AddModelError("", result.Message);
         return View(model);
     }
 
-    [HttpGet]
-    public IActionResult RegisterSuccess()
+    [HttpGet] public IActionResult Login() => View();
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(LoginDto model, string? returnUrl = null)
     {
-        return View();
+        if (User.Identity!.IsAuthenticated) return RedirectToAction("Index", "Home");
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await _authService.LoginUserAsync(model);
+
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            return View(model);
+        }
+
+        // Authentication Process
+        var principal = (ClaimsPrincipal)result.Data!;
+        await HttpContext.SignInAsync("CookieAuth", principal, new AuthenticationProperties { IsPersistent = true });
+
+        TempData["SuccessMessage"] = result.Message;
+        return LocalRedirect(returnUrl ?? "/Home/Index");
     }
 
     [HttpGet]
     public async Task<IActionResult> Verify(string token)
     {
-        var isVerified = await _authService.VerifyEmailAsync(token);
-        if (isVerified)
+        var result = await _authService.VerifyEmailAsync(token);
+        if (result.IsSuccess)
         {
-            TempData["SuccessMessage"] = "Email successfully verified! You can now log in.";
+            TempData["SuccessMessage"] = result.Message;
             return View("VerifySuccess");
         }
-        TempData["ErrorMessage"] = "Invalid verification link or token has expired.";
+        TempData["ErrorMessage"] = result.Message;
         return View("VerifyError");
     }
 
-    [HttpGet]
-    public IActionResult Login()
-    {
-        return View();
-    }
+    [HttpGet] public IActionResult ForgotPassword() => View();
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginDto model, string returnUrl = null)
-    {
-        if (User.Identity.IsAuthenticated)
-        {
-            TempData["ToastType"] = "warning";
-            TempData["ToastMessage"] = "You are currently signed in. Redirecting you to the homepage.";
-            return RedirectToAction("Index", "Home");
-        }
-
-        if (!ModelState.IsValid) return View(model);
-
-        string result = await _authService.LoginUserAsync(model);
-
-        if (result == "Invalid credentials." || result == "Email not verified. Please check your inbox.")
-        {
-            ModelState.AddModelError("", result);
-            return View(model);
-        }
-
-        Guid userId = new Guid(result);
-
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Email, model.Email),
-            new Claim(ClaimTypes.Name, model.Email)
-        };
-
-        var claimsIdentity = new ClaimsIdentity(claims, "CookieAuth");
-        var authProperties = new AuthenticationProperties
-        {
-            IsPersistent = true,
-            ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
-        };
-
-        await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
-
-        TempData["SuccessMessage"] = "Login successful! Welcome back.";
-        return RedirectToAction("Index", "Home");
-    }
-
-    [HttpGet]
-    public IActionResult ForgotPassword()
-    {
-        return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordDto model)
     {
-        if (!ModelState.IsValid)
-            return View(model);
+        if (!ModelState.IsValid) return View(model);
 
-        string baseUrl = $"{Request.Scheme}://{Request.Host}";
-        var result = await _authService.ForgotPasswordAsync(model, baseUrl);
-
-        // Always return success message for security (don't reveal if email exists)
-        TempData["SuccessMessage"] = "If an account exists with that email, a password reset link has been sent.";
+        var result = await _authService.ForgotPasswordAsync(model, GetBaseUrl());
+        TempData["SuccessMessage"] = result.Message;
         return RedirectToAction("ForgotPasswordSuccess");
-    }
-
-    [HttpGet]
-    public IActionResult ForgotPasswordSuccess()
-    {
-        return View();
     }
 
     [HttpGet]
     public async Task<IActionResult> ResetPassword(string token, string email)
     {
-        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(email))
-        {
-            TempData["ErrorMessage"] = "Invalid reset link.";
-            return RedirectToAction("Login");
-        }
-
-        // Validate the token
-        bool isValid = await _authService.ValidateResetTokenAsync(email, token);
-        if (!isValid)
+        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(email) || !await _authService.ValidateResetTokenAsync(email, token))
         {
             TempData["ErrorMessage"] = "Invalid or expired reset link.";
             return RedirectToAction("Login");
         }
 
-        var model = new ResetPasswordDto
-        {
-            Token = token,
-            Email = email
-        };
-
-        return View(model);
+        return View(new ResetPasswordDto { Token = token, Email = email });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(ResetPasswordDto model)
     {
-        if (!ModelState.IsValid)
-            return View(model);
+        if (!ModelState.IsValid) return View(model);
 
         var result = await _authService.ResetPasswordAsync(model);
-
-        if (result == "Success")
+        if (result.IsSuccess)
         {
-            TempData["SuccessMessage"] = "Password successfully reset! You can now log in with your new password.";
+            TempData["SuccessMessage"] = result.Message;
             return RedirectToAction("ResetPasswordSuccess");
         }
 
-        TempData["ErrorMessage"] = result;
-        return RedirectToAction("Login");
+        ModelState.AddModelError("", result.Message);
+        return View(model);
     }
 
-    [HttpGet]
-    public IActionResult ResetPasswordSuccess()
-    {
-        return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync("CookieAuth");
-        TempData["SuccessMessage"] = "You have been logged out successfully.";
+        TempData["SuccessMessage"] = "Logged out successfully.";
         return RedirectToAction("Index", "Home");
     }
+
+    // Success Pages
+    [HttpGet] public IActionResult RegisterSuccess() => View();
+    [HttpGet] public IActionResult ForgotPasswordSuccess() => View();
+    [HttpGet] public IActionResult ResetPasswordSuccess() => View();
+
+    // Helper to get Base URL
+    private string GetBaseUrl() => $"{Request.Scheme}://{Request.Host}";
 }

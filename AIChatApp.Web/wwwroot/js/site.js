@@ -1,123 +1,112 @@
-﻿
-// Function to handle file selection and display an instant preview of the image.
+﻿/**
+ * site.js - Global UI Logic for AIChatApp
+ */
+
 function previewFile(event) {
     const file = event.target.files[0];
     if (file && file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = function (e) {
             const preview = document.getElementById('imagePreview');
-            preview.src = e.target.result;
-            preview.alt = 'New profile preview';
+            if (preview) preview.src = e.target.result;
         };
         reader.readAsDataURL(file);
     }
 }
 
-
-/**
- * Closes the generic action modal.
- */
 function closeActionModal() {
     const modal = document.getElementById('action-modal');
-    if (modal) {
-        modal.classList.add('hidden');
+    const container = document.getElementById('modal-container');
 
-        // Restore cancel button visibility in case it was hidden by showSimpleToast
-        const cancelButton = document.getElementById('modal-cancel-button');
-        if (cancelButton) {
-            cancelButton.classList.remove('hidden');
-        }
+    if (container) {
+        container.classList.add('scale-95', 'opacity-0');
     }
+
+    setTimeout(() => {
+        if (modal) modal.classList.add('hidden');
+    }, 200);
 }
 
 /**
- * Displays a simple toast/modal notification based on TempData.
- * Success = Green, Warning = Red.
+ * showSimpleToast - For one-way notifications (Success/Alerts)
  */
 function showSimpleToast(title, message, type) {
-    // 1. Get Elements
     const modal = document.getElementById('action-modal');
+    const container = document.getElementById('modal-container');
     const modalTitle = document.getElementById('modal-title');
     const modalMessage = document.getElementById('modal-message-content');
     const actionBtn = document.getElementById('modal-action-button');
     const iconContainer = document.getElementById('modal-icon-container');
+    const iconElement = document.getElementById('modal-icon-element');
     const cancelButton = document.getElementById('modal-cancel-button');
 
-    // Safety check
-    if (!modal || !modalTitle || !modalMessage || !actionBtn || !iconContainer || !cancelButton) {
-        console.error("SimpleToast: One or more modal components missing.");
-        return;
-    }
+    if (!modal || !modalTitle || !modalMessage || !actionBtn) return;
 
-    // 2. Set Content
     modalTitle.textContent = title;
     modalMessage.textContent = message;
-    actionBtn.textContent = "OK"; // Default text for information
+    actionBtn.textContent = "OK";
 
-    // 3. Hide Cancel Button (Since this is just a notification toast)
-    cancelButton.classList.add('hidden');
+    // Hide cancel button for simple alerts
+    if (cancelButton) cancelButton.classList.add('hidden');
 
-    // 4. Reset Classes (Remove previous colors)
-    actionBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500', 'bg-red-600', 'hover:bg-red-500');
-    iconContainer.classList.remove('bg-green-100', 'bg-red-100');
+    // Reset and Set Icon Theme
+    iconContainer.className = "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ";
+    actionBtn.className = "flex-1 py-4 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all hover:scale-[1.02] ";
 
-    // 5. Apply Visual Style based on Type
     if (type === 'warning') {
-        // Red Icon / Button
-        iconContainer.innerHTML = `
-            <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.375h18.606c1.026 0 1.554 1.29.808 2.036l-9.303 9.303c-.63.63-1.63.63-2.26 0L2.14 17.584c-.746-.746-.218-2.036.808-2.036z" />
-            </svg>`;
-        iconContainer.classList.add('bg-red-100');
-        actionBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+        iconContainer.classList.add('bg-rose-50', 'text-rose-500');
+        iconElement.className = "fa-solid fa-triangle-exclamation text-2xl";
+        actionBtn.classList.add('bg-rose-600', 'shadow-rose-100');
     } else {
-        // Default: Success (Green)
-        iconContainer.innerHTML = `
-            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>`;
-        iconContainer.classList.add('bg-green-100');
-        actionBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+        iconContainer.classList.add('bg-emerald-50', 'text-emerald-500');
+        iconElement.className = "fa-solid fa-circle-check text-2xl";
+        actionBtn.classList.add('bg-emerald-600', 'shadow-emerald-100');
     }
 
-    // 6. Action Handler: Just close
     actionBtn.onclick = closeActionModal;
 
-    // 7. Show Modal
+    // Show Modal
     modal.classList.remove('hidden');
+    setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+        container.classList.add('scale-100', 'opacity-100');
+    }, 10);
 }
 
 /**
- * Handles interactive confirmations (like Logout).
+ * showActionModal - For interactive confirmations (Logout/Deletions)
  */
 function showActionModal(options) {
     const modal = document.getElementById('action-modal');
+    const container = document.getElementById('modal-container');
     const title = document.getElementById('modal-title');
     const message = document.getElementById('modal-message-content');
     const actionBtn = document.getElementById('modal-action-button');
     const iconContainer = document.getElementById('modal-icon-container');
+    const iconElement = document.getElementById('modal-icon-element');
     const cancelButton = document.getElementById('modal-cancel-button');
 
-    // Set Content
-    title.textContent = options.title;
-    message.textContent = options.message;
-    actionBtn.textContent = options.actionText;
+    if (!modal) return;
 
-    // Ensure Cancel is visible for interactive modals
-    cancelButton.classList.remove('hidden');
+    title.textContent = options.title || "Confirm";
+    message.textContent = options.message || "";
+    actionBtn.textContent = options.actionText || "Confirm";
 
-    // Reset Styles
-    actionBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500', 'bg-red-600', 'hover:bg-red-500');
-    iconContainer.classList.remove('bg-green-100', 'bg-red-100');
+    // Show cancel button for interactions
+    if (cancelButton) cancelButton.classList.remove('hidden');
 
-    if (options.type === 'warning') {
-        iconContainer.innerHTML = `<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.375h18.606c1.026 0 1.554 1.29.808 2.036l-9.303 9.303c-.63.63-1.63.63-2.26 0L2.14 17.584c-.746-.746-.218-2.036.808-2.036z" /></svg>`;
-        iconContainer.classList.add('bg-red-100');
-        actionBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+    // Reset and Set Icon Theme
+    iconContainer.className = "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ";
+    actionBtn.className = "flex-1 py-4 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all hover:scale-[1.02] ";
+
+    if (options.type === 'warning' || options.type === 'logout') {
+        iconContainer.classList.add('bg-rose-50', 'text-rose-500');
+        iconElement.className = options.type === 'logout' ? "fa-solid fa-right-from-bracket text-2xl" : "fa-solid fa-triangle-exclamation text-2xl";
+        actionBtn.classList.add('bg-indigo-600', 'shadow-indigo-100');
     } else {
-        iconContainer.innerHTML = `<svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>`;
-        iconContainer.classList.add('bg-green-100');
-        actionBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+        iconContainer.classList.add('bg-indigo-50', 'text-indigo-600');
+        iconElement.className = "fa-solid fa-circle-info text-2xl";
+        actionBtn.classList.add('bg-indigo-600', 'shadow-indigo-100');
     }
 
     actionBtn.onclick = function () {
@@ -126,53 +115,27 @@ function showActionModal(options) {
     };
 
     modal.classList.remove('hidden');
+    setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+        container.classList.add('scale-100', 'opacity-100');
+    }, 10);
 }
 
+/**
+ * confirmLogout - Specifically wired to the Logout Form
+ */
 function confirmLogout(event) {
-    event.preventDefault();
+    if (event) event.preventDefault();
     const form = document.getElementById('logoutForm');
+    if (!form) return;
+
     showActionModal({
-        title: 'Confirm Logout',
-        message: 'Are you sure you want to sign out?',
-        type: 'warning',
+        title: 'Sign Out',
+        message: 'Are you sure you want to end your session?',
+        type: 'logout',
         actionText: 'Yes, Logout',
         onAction: function () {
             form.submit();
         }
     });
 }
-
-
-/**
- * Initializes toast display logic on page load.
- * This function is designed to read and consume server-side TempData messages.
- */
-document.addEventListener('DOMContentLoaded', function () {
-    // ⚠️ IMPORTANT: These values are INJECTED by the Razor engine into the final JS file.
-    // They are defined as global variables in the <head> or <body> of the layout page.
-
-    // Check if the variables were successfully defined in the Razor View
-    if (typeof window.razorToastType !== 'undefined' && window.razorToastMessage && window.showSimpleToast) {
-
-        const type = window.razorToastType;
-        const message = window.razorToastMessage;
-
-        let title = '';
-        if (type === 'warning') {
-            title = 'Access Denied';
-        } else if (type === 'success') {
-            title = 'Operation Successful';
-        } else {
-            title = 'Information';
-        }
-
-        // Only show if a message is present (empty string means no message)
-        if (message) {
-            showSimpleToast(title, message, type);
-        }
-
-        // Cleanup the global variables after consumption
-        delete window.razorToastType;
-        delete window.razorToastMessage;
-    }
-});

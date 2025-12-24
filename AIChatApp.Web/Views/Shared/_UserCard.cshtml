@@ -36,8 +36,6 @@
                  class="h-14 w-14 rounded-full object-cover bg-gray-50 border border-gray-200"
                  onerror="this.onerror=null;this.src='@avatarUrl';" />
 
-            <!-- Active Status Dot (Green = Online, Gray = Offline) -->
-            <span class="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full ring-2 ring-white bg-green-500" title="Active"></span>
         </div>
 
         <!-- Text Info -->
@@ -53,7 +51,9 @@
     <!-- Right Side: Action Button -->
     <!-- This icon fades in when you hover over the card -->
     <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <a href="@Url.Action("Index", "Chat", new { userId = Model.Id })"
+        <a asp-controller="Chat"
+           asp-action="Index"
+           asp-route-userId="@Model.Id"
            class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-black text-white hover:bg-gray-800 transition-colors shadow-sm"
            title="Send Message">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

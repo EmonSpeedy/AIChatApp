@@ -659,3 +659,14 @@
     // Start
     initializeConnection();
 })();
+connection.on("ReceiveMessage", function (message) {
+    // 1. If the sender's ID is NOT the current active chat window:
+    if (activeChatUserId !== message.senderId) {
+        // 2. Find the user in the sidebar and add the blue dot class
+        let userElement = document.querySelector(`[data-user-id="${message.senderId}"]`);
+        if (userElement) {
+            // Move user to the "Unread" section container via DOM manipulation
+            // and show the dot
+        }
+    }
+});

@@ -1,5 +1,6 @@
 ﻿using AIChatApp.Domain.Entities;
 using AIChatApp.Domain.Interfaces;
+using AIChatApp.Domain.Models;
 using AIChatApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,28 @@ public class MessageRepository : IMessageRepository
     public MessageRepository(AppDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<List<ChatConversationSummary>> GetUserChatListAsync(Guid currentUserId)
+    {
+        var conversations = await _context.ChatConversations
+            .Where(c => c.User1Id == currentUserId || c.User2Id == currentUserId)
+            .OrderByDescending(c => c.LastMessageAt)
+            .Select(c => new ChatConversationSummary // Use Domain Model here
+            {
+                UserId = c.User1Id == currentUserId ? c.User2Id : c.User1Id,
+                FullName = c.User1Id == currentUserId ? c.User2.FullName : c.User1.FullName,
+                ProfileImageUrl = c.User1Id == currentUserId ? c.User2.ProfileImageUrl : c.User1.ProfileImageUrl,
+                LastMessage = c.LastMessage,
+                LastMessageAt = c.LastMessageAt,
+                UnreadCount = _context.ChatMessages.Count(m =>
+                    m.SenderId == (c.User1Id == currentUserId ? c.User2Id : c.User1Id) &&
+                    m.ReceiverId == currentUserId &&
+                    !m.IsRead)
+            })
+            .ToListAsync();
+
+        return conversations;
     }
 
     public async Task<ChatMessage> AddMessageAsync(ChatMessage message)

@@ -1,4 +1,5 @@
 ﻿using AIChatApp.Domain.Entities;
+using AIChatApp.Domain.Models;
 
 namespace AIChatApp.Domain.Interfaces;
 
@@ -11,5 +12,6 @@ public interface IMessageRepository
     Task<int> GetUnreadCountAsync(Guid userId);
     Task<ChatMessage?> GetMessageByIdAsync(int messageId);
     Task UpdateMessageAsync(ChatMessage message);
+    Task<List<ChatConversationSummary>> GetUserChatListAsync(Guid currentUserId);
     Task DeleteMessageAsync(ChatMessage message);
 }

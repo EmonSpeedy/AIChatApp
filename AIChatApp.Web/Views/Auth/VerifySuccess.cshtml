@@ -3,26 +3,57 @@
     Layout = "_Layout";
 }
 
-<div class="flex items-center justify-center py-16 px-4 sm:px-6 lg:px-8 bg-white min-h-[80vh]">
-    <div class="w-full max-w-sm text-center space-y-6">
-
-        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-50">
-            <svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
-
-        <div>
-            <h2 class="text-3xl font-bold tracking-tight text-gray-900">Email Verified!</h2>
-            <p class="mt-2 text-sm text-gray-500">
-                Your email address has been successfully confirmed. You can now log in to your account.
+<div class="min-h-[80vh] flex items-center justify-center py-16 px-4 sm:px-6 lg:px-8 bg-slate-50">
+    <div class="w-full max-w-md">
+        <!-- Brand / Header -->
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-emerald-500 rounded-[2rem] shadow-xl shadow-emerald-100 mb-6 transition-transform hover:scale-110 duration-500">
+                <i class="fa-solid fa-user-check text-white text-3xl"></i>
+            </div>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900">Email Verified!</h2>
+            <p class="mt-3 text-sm text-slate-500 font-medium">
+                Your identity has been successfully confirmed.
             </p>
         </div>
 
-        <div class="pt-4">
-            <a asp-controller="Auth" asp-action="Login" class="flex w-full justify-center rounded-md border border-transparent bg-black py-3 px-4 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200">
-                Go to Login
-            </a>
+        <!-- Success Card -->
+        <div class="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-2xl shadow-slate-200/50 text-center">
+            <div class="space-y-6">
+                <div class="space-y-4 text-slate-500 text-sm leading-relaxed font-medium">
+                    <p>
+                        Congratulations! Your email address has been successfully verified. You now have full access to all features of our platform.
+                    </p>
+                    <p>
+                        Thank you for helping us keep your account secure. You can now proceed to your dashboard.
+                    </p>
+                </div>
+
+                <!-- Feature Highlight -->
+                <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3 text-left">
+                    <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                        <i class="fa-solid fa-rocket text-emerald-500 text-xs"></i>
+                    </div>
+                    <p class="text-[11px] text-emerald-700 font-bold leading-tight uppercase tracking-wide">
+                        Your account is now fully active and ready for use.
+                    </p>
+                </div>
+
+                <!-- Action Button -->
+                <div class="pt-4">
+                    <a asp-controller="Auth" asp-action="Login"
+                       class="group relative w-full flex items-center justify-center py-4 px-4 bg-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-lg shadow-indigo-100 hover:scale-[1.01] active:scale-[0.98]">
+                        <span class="mr-2">Go to Sign In</span>
+                        <i class="fa-solid fa-right-to-bracket text-[10px] group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Notice -->
+        <div class="mt-8 text-center">
+            <p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+                Secure Authentication Environment
+            </p>
         </div>
     </div>
 </div>

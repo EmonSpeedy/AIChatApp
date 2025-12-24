@@ -15,7 +15,7 @@ public class ChatMessage
     public DateTime SentAt { get; set; }
     public bool IsRead { get; set; }
     public string? AttachmentUrl { get; set; }
-    public string? AttachmentType { get; set; } // e.g., "image", "pdf"
+    public string? AttachmentType { get; set; } 
     public string? OriginalFileName { get; set; }
 
     // Navigation properties
